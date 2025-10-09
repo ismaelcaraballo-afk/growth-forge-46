@@ -7,6 +7,7 @@ import { Confetti } from '@/components/Dashboard/Confetti';
 import { WelcomeModal } from '@/components/Dashboard/WelcomeModal';
 import { SearchBar } from '@/components/Dashboard/SearchBar';
 import { LockScreen } from '@/components/Dashboard/LockScreen';
+import { AIInsights } from '@/components/Dashboard/AIInsights';
 import { Button } from '@/components/ui/button';
 
 const initialData: DashboardData = {
@@ -322,6 +323,9 @@ const Index = () => {
               />
             </div>
 
+            {/* AI Insights Section */}
+            <AIInsights data={data} currentTab={tab} />
+
             <div className="bg-card rounded-2xl p-8 shadow-lg border border-border">
               <h3 className="text-2xl font-bold text-foreground mb-4">Getting Started</h3>
               <div className="grid md:grid-cols-3 gap-4">
@@ -345,12 +349,65 @@ const Index = () => {
           </div>
         )}
 
-        {/* Other tabs will be implemented */}
-        {tab !== 'dash' && (
-          <div className="pb-12 animate-in fade-in duration-500">
+        {/* Reading Tab */}
+        {tab === 'reading' && (
+          <div className="space-y-6 pb-12 animate-in fade-in duration-500">
+            <div className="flex justify-between items-center">
+              <h2 className="text-3xl font-bold text-foreground">Reading Tracker</h2>
+              <Button className="gradient-blue text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Book
+              </Button>
+            </div>
+            
+            <AIInsights data={data} currentTab={tab} />
+            
             <div className="bg-card rounded-2xl p-12 text-center shadow-lg">
-              <p className="text-2xl font-bold text-foreground mb-2">Coming Soon!</p>
-              <p className="text-muted-foreground">This section is being refactored with improved components.</p>
+              <BookOpen className="h-24 w-24 mx-auto mb-4 text-primary opacity-50" />
+              <p className="text-xl font-bold text-foreground mb-2">Full CRUD operations coming soon!</p>
+              <p className="text-muted-foreground">Table views, editing, and filtering will be added in the next iteration.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Career Tab */}
+        {tab === 'career' && (
+          <div className="space-y-6 pb-12 animate-in fade-in duration-500">
+            <div className="flex justify-between items-center">
+              <h2 className="text-3xl font-bold text-foreground">Career Tracker</h2>
+              <Button className="gradient-green text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Job
+              </Button>
+            </div>
+            
+            <AIInsights data={data} currentTab={tab} />
+            
+            <div className="bg-card rounded-2xl p-12 text-center shadow-lg">
+              <Briefcase className="h-24 w-24 mx-auto mb-4 text-success opacity-50" />
+              <p className="text-xl font-bold text-foreground mb-2">Full CRUD operations coming soon!</p>
+              <p className="text-muted-foreground">Track your job applications with detailed views in the next update.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Language Tab */}
+        {tab === 'language' && (
+          <div className="space-y-6 pb-12 animate-in fade-in duration-500">
+            <div className="flex justify-between items-center">
+              <h2 className="text-3xl font-bold text-foreground">Language Learning</h2>
+              <Button className="gradient-purple text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Vocabulary
+              </Button>
+            </div>
+            
+            <AIInsights data={data} currentTab={tab} />
+            
+            <div className="bg-card rounded-2xl p-12 text-center shadow-lg">
+              <Languages className="h-24 w-24 mx-auto mb-4 text-purple-500 opacity-50" />
+              <p className="text-xl font-bold text-foreground mb-2">Full CRUD operations coming soon!</p>
+              <p className="text-muted-foreground">Vocabulary management and practice modes will be added next.</p>
             </div>
           </div>
         )}
