@@ -28,6 +28,11 @@ export interface Vocabulary {
   tags?: string[];
 }
 
+// Type aliases for consistency
+export type BookItem = Book;
+export type JobItem = Job;
+export type VocabItem = Vocabulary;
+
 export interface DashboardData {
   books: Book[];
   jobs: Job[];

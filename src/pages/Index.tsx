@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Briefcase, Languages, TrendingUp, Plus, Download, Upload, Moon, Sun } from 'lucide-react';
-import { DashboardData, TabType, ToastMessage } from '@/types';
+import { DashboardData, TabType, ToastMessage, BookItem, JobItem, VocabItem } from '@/types';
 import { StatCard } from '@/components/Dashboard/StatCard';
 import { Toast } from '@/components/Dashboard/Toast';
 import { Confetti } from '@/components/Dashboard/Confetti';
@@ -8,6 +8,12 @@ import { WelcomeModal } from '@/components/Dashboard/WelcomeModal';
 import { SearchBar } from '@/components/Dashboard/SearchBar';
 import { LockScreen } from '@/components/Dashboard/LockScreen';
 import { AIInsights } from '@/components/Dashboard/AIInsights';
+import { BooksList } from '@/components/Dashboard/BooksList';
+import { BookForm } from '@/components/Dashboard/BookForm';
+import { JobsList } from '@/components/Dashboard/JobsList';
+import { JobForm } from '@/components/Dashboard/JobForm';
+import { VocabList } from '@/components/Dashboard/VocabList';
+import { VocabForm } from '@/components/Dashboard/VocabForm';
 import { Button } from '@/components/ui/button';
 
 const initialData: DashboardData = {
@@ -83,6 +89,14 @@ const Index = () => {
   const [unsavedChanges, setUnsavedChanges] = useState(0);
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   const [confetti, setConfetti] = useState<Array<{ id: number; left: number; backgroundColor: string; delay: number }>>([]);
+  
+  // Form states
+  const [showBookForm, setShowBookForm] = useState(false);
+  const [editingBook, setEditingBook] = useState<BookItem | undefined>();
+  const [showJobForm, setShowJobForm] = useState(false);
+  const [editingJob, setEditingJob] = useState<JobItem | undefined>();
+  const [showVocabForm, setShowVocabForm] = useState(false);
+  const [editingVocab, setEditingVocab] = useState<VocabItem | undefined>();
 
   useEffect(() => {
     if (darkMode) {
@@ -165,6 +179,93 @@ const Index = () => {
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  // CRUD handlers for Books
+  const handleSaveBook = (book: Omit<BookItem, 'id'> & { id?: number }) => {
+    if (book.id) {
+      setData(prev => ({
+        ...prev,
+        books: prev.books.map(b => b.id === book.id ? book as BookItem : b)
+      }));
+      setToast({ message: '📚 Book updated!', type: 'success' });
+    } else {
+      const newBook = { ...book, id: Date.now() } as BookItem;
+      setData(prev => ({ ...prev, books: [...prev.books, newBook] }));
+      setToast({ message: '📚 Book added!', type: 'success' });
+    }
+    setShowBookForm(false);
+    setEditingBook(undefined);
+    setUnsavedChanges(prev => prev + 1);
+  };
+
+  const handleEditBook = (book: BookItem) => {
+    setEditingBook(book);
+    setShowBookForm(true);
+  };
+
+  const handleDeleteBook = (id: number) => {
+    setData(prev => ({ ...prev, books: prev.books.filter(b => b.id !== id) }));
+    setToast({ message: '🗑️ Book deleted!', type: 'success' });
+    setUnsavedChanges(prev => prev + 1);
+  };
+
+  // CRUD handlers for Jobs
+  const handleSaveJob = (job: Omit<JobItem, 'id'> & { id?: number }) => {
+    if (job.id) {
+      setData(prev => ({
+        ...prev,
+        jobs: prev.jobs.map(j => j.id === job.id ? job as JobItem : j)
+      }));
+      setToast({ message: '💼 Job updated!', type: 'success' });
+    } else {
+      const newJob = { ...job, id: Date.now() } as JobItem;
+      setData(prev => ({ ...prev, jobs: [...prev.jobs, newJob] }));
+      setToast({ message: '💼 Job added!', type: 'success' });
+    }
+    setShowJobForm(false);
+    setEditingJob(undefined);
+    setUnsavedChanges(prev => prev + 1);
+  };
+
+  const handleEditJob = (job: JobItem) => {
+    setEditingJob(job);
+    setShowJobForm(true);
+  };
+
+  const handleDeleteJob = (id: number) => {
+    setData(prev => ({ ...prev, jobs: prev.jobs.filter(j => j.id !== id) }));
+    setToast({ message: '🗑️ Job deleted!', type: 'success' });
+    setUnsavedChanges(prev => prev + 1);
+  };
+
+  // CRUD handlers for Vocabulary
+  const handleSaveVocab = (vocab: Omit<VocabItem, 'id'> & { id?: number }) => {
+    if (vocab.id) {
+      setData(prev => ({
+        ...prev,
+        vocab: prev.vocab.map(v => v.id === vocab.id ? vocab as VocabItem : v)
+      }));
+      setToast({ message: '📖 Vocabulary updated!', type: 'success' });
+    } else {
+      const newVocab = { ...vocab, id: Date.now() } as VocabItem;
+      setData(prev => ({ ...prev, vocab: [...prev.vocab, newVocab] }));
+      setToast({ message: '📖 Vocabulary added!', type: 'success' });
+    }
+    setShowVocabForm(false);
+    setEditingVocab(undefined);
+    setUnsavedChanges(prev => prev + 1);
+  };
+
+  const handleEditVocab = (vocab: VocabItem) => {
+    setEditingVocab(vocab);
+    setShowVocabForm(true);
+  };
+
+  const handleDeleteVocab = (id: number) => {
+    setData(prev => ({ ...prev, vocab: prev.vocab.filter(v => v.id !== id) }));
+    setToast({ message: '🗑️ Vocabulary deleted!', type: 'success' });
+    setUnsavedChanges(prev => prev + 1);
   };
 
   const stats = {
@@ -354,7 +455,13 @@ const Index = () => {
           <div className="space-y-6 pb-12 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold text-foreground">Reading Tracker</h2>
-              <Button className="gradient-blue text-white">
+              <Button 
+                className="gradient-blue text-white"
+                onClick={() => {
+                  setEditingBook(undefined);
+                  setShowBookForm(true);
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Book
               </Button>
@@ -362,11 +469,22 @@ const Index = () => {
             
             <AIInsights data={data} currentTab={tab} />
             
-            <div className="bg-card rounded-2xl p-12 text-center shadow-lg">
-              <BookOpen className="h-24 w-24 mx-auto mb-4 text-primary opacity-50" />
-              <p className="text-xl font-bold text-foreground mb-2">Full CRUD operations coming soon!</p>
-              <p className="text-muted-foreground">Table views, editing, and filtering will be added in the next iteration.</p>
-            </div>
+            {showBookForm ? (
+              <BookForm
+                book={editingBook}
+                onSave={handleSaveBook}
+                onCancel={() => {
+                  setShowBookForm(false);
+                  setEditingBook(undefined);
+                }}
+              />
+            ) : (
+              <BooksList
+                books={data.books}
+                onEdit={handleEditBook}
+                onDelete={handleDeleteBook}
+              />
+            )}
           </div>
         )}
 
@@ -375,7 +493,13 @@ const Index = () => {
           <div className="space-y-6 pb-12 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold text-foreground">Career Tracker</h2>
-              <Button className="gradient-green text-white">
+              <Button 
+                className="gradient-green text-white"
+                onClick={() => {
+                  setEditingJob(undefined);
+                  setShowJobForm(true);
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Job
               </Button>
@@ -383,11 +507,22 @@ const Index = () => {
             
             <AIInsights data={data} currentTab={tab} />
             
-            <div className="bg-card rounded-2xl p-12 text-center shadow-lg">
-              <Briefcase className="h-24 w-24 mx-auto mb-4 text-success opacity-50" />
-              <p className="text-xl font-bold text-foreground mb-2">Full CRUD operations coming soon!</p>
-              <p className="text-muted-foreground">Track your job applications with detailed views in the next update.</p>
-            </div>
+            {showJobForm ? (
+              <JobForm
+                job={editingJob}
+                onSave={handleSaveJob}
+                onCancel={() => {
+                  setShowJobForm(false);
+                  setEditingJob(undefined);
+                }}
+              />
+            ) : (
+              <JobsList
+                jobs={data.jobs}
+                onEdit={handleEditJob}
+                onDelete={handleDeleteJob}
+              />
+            )}
           </div>
         )}
 
@@ -396,7 +531,13 @@ const Index = () => {
           <div className="space-y-6 pb-12 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold text-foreground">Language Learning</h2>
-              <Button className="gradient-purple text-white">
+              <Button 
+                className="gradient-purple text-white"
+                onClick={() => {
+                  setEditingVocab(undefined);
+                  setShowVocabForm(true);
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Vocabulary
               </Button>
@@ -404,11 +545,22 @@ const Index = () => {
             
             <AIInsights data={data} currentTab={tab} />
             
-            <div className="bg-card rounded-2xl p-12 text-center shadow-lg">
-              <Languages className="h-24 w-24 mx-auto mb-4 text-purple-500 opacity-50" />
-              <p className="text-xl font-bold text-foreground mb-2">Full CRUD operations coming soon!</p>
-              <p className="text-muted-foreground">Vocabulary management and practice modes will be added next.</p>
-            </div>
+            {showVocabForm ? (
+              <VocabForm
+                vocab={editingVocab}
+                onSave={handleSaveVocab}
+                onCancel={() => {
+                  setShowVocabForm(false);
+                  setEditingVocab(undefined);
+                }}
+              />
+            ) : (
+              <VocabList
+                vocab={data.vocab}
+                onEdit={handleEditVocab}
+                onDelete={handleDeleteVocab}
+              />
+            )}
           </div>
         )}
       </div>
