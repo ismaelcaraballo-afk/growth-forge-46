@@ -31,14 +31,14 @@ export const JobsList = ({ jobs, onEdit, onDelete }: JobsListProps) => {
   return (
     <div className="grid gap-4">
       {jobs.map((job) => (
-        <Card key={job.id} className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex justify-between items-start gap-4">
-            <div className="flex-1">
+        <Card key={job.id} className="p-4 sm:p-6 hover:shadow-lg transition-shadow">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="flex-1 w-full">
               <div className="flex items-start gap-3 mb-2">
-                <Briefcase className="h-5 w-5 text-success mt-1" />
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-foreground mb-1">{job.position}</h3>
-                  <p className="text-muted-foreground">{job.company}</p>
+                <Briefcase className="h-5 w-5 text-success mt-1 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-xl font-bold text-foreground mb-1 break-words">{job.position}</h3>
+                  <p className="text-sm sm:text-base text-muted-foreground break-words">{job.company}</p>
                 </div>
               </div>
               
@@ -51,17 +51,17 @@ export const JobsList = ({ jobs, onEdit, onDelete }: JobsListProps) => {
                 ))}
               </div>
               
-              <p className="text-sm text-muted-foreground mt-3">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-3">
                 Applied: {new Date(job.dateAdded).toLocaleDateString()}
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => onEdit(job)}
-                className="hover:bg-primary/10"
+                className="hover:bg-primary/10 flex-1 sm:flex-none"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -69,7 +69,7 @@ export const JobsList = ({ jobs, onEdit, onDelete }: JobsListProps) => {
                 variant="outline"
                 size="icon"
                 onClick={() => onDelete(job.id)}
-                className="hover:bg-destructive/10 hover:text-destructive"
+                className="hover:bg-destructive/10 hover:text-destructive flex-1 sm:flex-none"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

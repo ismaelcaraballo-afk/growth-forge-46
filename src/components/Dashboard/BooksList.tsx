@@ -40,14 +40,14 @@ export const BooksList = ({ books, onEdit, onDelete }: BooksListProps) => {
   return (
     <div className="grid gap-4">
       {books.map((book) => (
-        <Card key={book.id} className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex justify-between items-start gap-4">
-            <div className="flex-1">
+        <Card key={book.id} className="p-4 sm:p-6 hover:shadow-lg transition-shadow">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="flex-1 w-full">
               <div className="flex items-start gap-3 mb-2">
-                <Book className="h-5 w-5 text-primary mt-1" />
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-foreground mb-1">{book.title}</h3>
-                  <p className="text-muted-foreground">{book.author}</p>
+                <Book className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-xl font-bold text-foreground mb-1 break-words">{book.title}</h3>
+                  <p className="text-sm sm:text-base text-muted-foreground break-words">{book.author}</p>
                 </div>
               </div>
               
@@ -65,17 +65,17 @@ export const BooksList = ({ books, onEdit, onDelete }: BooksListProps) => {
                 {renderStars(book.rating)}
               </div>
               
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                 Added: {new Date(book.dateAdded).toLocaleDateString()}
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => onEdit(book)}
-                className="hover:bg-primary/10"
+                className="hover:bg-primary/10 flex-1 sm:flex-none"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -83,7 +83,7 @@ export const BooksList = ({ books, onEdit, onDelete }: BooksListProps) => {
                 variant="outline"
                 size="icon"
                 onClick={() => onDelete(book.id)}
-                className="hover:bg-destructive/10 hover:text-destructive"
+                className="hover:bg-destructive/10 hover:text-destructive flex-1 sm:flex-none"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

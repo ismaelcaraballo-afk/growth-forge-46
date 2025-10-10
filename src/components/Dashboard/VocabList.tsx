@@ -31,24 +31,24 @@ export const VocabList = ({ vocab, onEdit, onDelete }: VocabListProps) => {
   return (
     <div className="grid gap-4">
       {vocab.map((item) => (
-        <Card key={item.id} className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex justify-between items-start gap-4">
-            <div className="flex-1">
+        <Card key={item.id} className="p-4 sm:p-6 hover:shadow-lg transition-shadow">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="flex-1 w-full">
               <div className="flex items-start gap-3 mb-3">
-                <Languages className="h-5 w-5 text-purple-500 mt-1" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-xl font-bold text-foreground">{item.word}</h3>
+                <Languages className="h-5 w-5 text-purple-500 mt-1 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-1">
+                    <h3 className="text-lg sm:text-xl font-bold text-foreground break-words">{item.word}</h3>
                     <Badge variant="outline">{item.lang}</Badge>
                   </div>
-                  <p className="text-muted-foreground">{item.trans}</p>
+                  <p className="text-sm sm:text-base text-muted-foreground break-words">{item.trans}</p>
                 </div>
               </div>
               
               <div className="space-y-2 mt-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Mastery:</span>
-                  <span className={`text-sm font-semibold ${getMasteryColor(item.mastery)}`}>
+                  <span className="text-xs sm:text-sm text-muted-foreground">Mastery:</span>
+                  <span className={`text-xs sm:text-sm font-semibold ${getMasteryColor(item.mastery)}`}>
                     {item.mastery}%
                   </span>
                 </div>
@@ -61,17 +61,17 @@ export const VocabList = ({ vocab, onEdit, onDelete }: VocabListProps) => {
                 ))}
               </div>
               
-              <p className="text-sm text-muted-foreground mt-3">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-3">
                 Added: {new Date(item.dateAdded).toLocaleDateString()}
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => onEdit(item)}
-                className="hover:bg-primary/10"
+                className="hover:bg-primary/10 flex-1 sm:flex-none"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -79,7 +79,7 @@ export const VocabList = ({ vocab, onEdit, onDelete }: VocabListProps) => {
                 variant="outline"
                 size="icon"
                 onClick={() => onDelete(item.id)}
-                className="hover:bg-destructive/10 hover:text-destructive"
+                className="hover:bg-destructive/10 hover:text-destructive flex-1 sm:flex-none"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

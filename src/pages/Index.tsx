@@ -90,6 +90,26 @@ const Index = () => {
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   const [confetti, setConfetti] = useState<Array<{ id: number; left: number; backgroundColor: string; delay: number }>>([]);
   
+  // Filtered data based on search
+  const filteredBooks = data.books.filter(book => 
+    book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    book.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    book.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+  
+  const filteredJobs = data.jobs.filter(job =>
+    job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    job.position.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    job.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+  
+  const filteredVocab = data.vocab.filter(vocab =>
+    vocab.word.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    vocab.trans.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    vocab.lang.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    vocab.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+  
   // Form states
   const [showBookForm, setShowBookForm] = useState(false);
   const [editingBook, setEditingBook] = useState<BookItem | undefined>();
@@ -453,10 +473,10 @@ const Index = () => {
         {/* Reading Tab */}
         {tab === 'reading' && (
           <div className="space-y-6 pb-12 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h2 className="text-3xl font-bold text-foreground">Reading Tracker</h2>
               <Button 
-                className="gradient-blue text-white"
+                className="gradient-blue text-white w-full sm:w-auto"
                 onClick={() => {
                   setEditingBook(undefined);
                   setShowBookForm(true);
@@ -480,7 +500,7 @@ const Index = () => {
               />
             ) : (
               <BooksList
-                books={data.books}
+                books={filteredBooks}
                 onEdit={handleEditBook}
                 onDelete={handleDeleteBook}
               />
@@ -491,10 +511,10 @@ const Index = () => {
         {/* Career Tab */}
         {tab === 'career' && (
           <div className="space-y-6 pb-12 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h2 className="text-3xl font-bold text-foreground">Career Tracker</h2>
               <Button 
-                className="gradient-green text-white"
+                className="gradient-green text-white w-full sm:w-auto"
                 onClick={() => {
                   setEditingJob(undefined);
                   setShowJobForm(true);
@@ -518,7 +538,7 @@ const Index = () => {
               />
             ) : (
               <JobsList
-                jobs={data.jobs}
+                jobs={filteredJobs}
                 onEdit={handleEditJob}
                 onDelete={handleDeleteJob}
               />
@@ -529,10 +549,10 @@ const Index = () => {
         {/* Language Tab */}
         {tab === 'language' && (
           <div className="space-y-6 pb-12 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h2 className="text-3xl font-bold text-foreground">Language Learning</h2>
               <Button 
-                className="gradient-purple text-white"
+                className="gradient-purple text-white w-full sm:w-auto"
                 onClick={() => {
                   setEditingVocab(undefined);
                   setShowVocabForm(true);
@@ -556,7 +576,7 @@ const Index = () => {
               />
             ) : (
               <VocabList
-                vocab={data.vocab}
+                vocab={filteredVocab}
                 onEdit={handleEditVocab}
                 onDelete={handleDeleteVocab}
               />
