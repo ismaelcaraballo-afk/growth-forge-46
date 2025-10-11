@@ -14,7 +14,141 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      books: {
+        Row: {
+          author: string
+          created_at: string | null
+          date_added: string
+          id: string
+          rating: number | null
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          author: string
+          created_at?: string | null
+          date_added?: string
+          id?: string
+          rating?: number | null
+          status?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          author?: string
+          created_at?: string | null
+          date_added?: string
+          id?: string
+          rating?: number | null
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      jobs: {
+        Row: {
+          company: string
+          created_at: string | null
+          date_applied: string
+          id: string
+          position: string
+          status: string
+          tags: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          company: string
+          created_at?: string | null
+          date_applied?: string
+          id?: string
+          position: string
+          status?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          company?: string
+          created_at?: string | null
+          date_applied?: string
+          id?: string
+          position?: string
+          status?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      vocabulary: {
+        Row: {
+          created_at: string | null
+          date_added: string
+          id: string
+          language: string
+          mastery: number
+          tags: string[] | null
+          translation: string
+          updated_at: string | null
+          user_id: string
+          word: string
+        }
+        Insert: {
+          created_at?: string | null
+          date_added?: string
+          id?: string
+          language: string
+          mastery?: number
+          tags?: string[] | null
+          translation: string
+          updated_at?: string | null
+          user_id: string
+          word: string
+        }
+        Update: {
+          created_at?: string | null
+          date_added?: string
+          id?: string
+          language?: string
+          mastery?: number
+          tags?: string[] | null
+          translation?: string
+          updated_at?: string | null
+          user_id?: string
+          word?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
