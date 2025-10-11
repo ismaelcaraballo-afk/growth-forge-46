@@ -8,7 +8,7 @@ import { BookItem } from '@/types';
 interface BooksListProps {
   books: BookItem[];
   onEdit: (book: BookItem) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string | number) => void;
 }
 
 export const BooksList = ({ books, onEdit, onDelete }: BooksListProps) => {

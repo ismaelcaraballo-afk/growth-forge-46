@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Briefcase, Languages, TrendingUp, Plus, Download, Upload, Moon, Sun } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { BookOpen, Briefcase, Languages, TrendingUp, Plus, Download, Upload, Moon, Sun, LogOut } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import type { User } from '@supabase/supabase-js';
 import { DashboardData, TabType, ToastMessage, BookItem, JobItem, VocabItem } from '@/types';
 import { StatCard } from '@/components/Dashboard/StatCard';
 import { Toast } from '@/components/Dashboard/Toast';
@@ -80,6 +83,9 @@ const initialData: DashboardData = {
 };
 
 const Index = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData>(initialData);
   const [tab, setTab] = useState<TabType>('dash');
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -117,6 +123,77 @@ const Index = () => {
   const [editingJob, setEditingJob] = useState<JobItem | undefined>();
   const [showVocabForm, setShowVocabForm] = useState(false);
   const [editingVocab, setEditingVocab] = useState<VocabItem | undefined>();
+
+  // Auth check
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+      if (!session) {
+        navigate('/auth');
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (!session) {
+        navigate('/auth');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  // Load data from Supabase
+  useEffect(() => {
+    if (!user) return;
+
+    const loadData = async () => {
+      try {
+        const [booksRes, jobsRes, vocabRes] = await Promise.all([
+          supabase.from('books').select('*').order('created_at', { ascending: false }),
+          supabase.from('jobs').select('*').order('created_at', { ascending: false }),
+          supabase.from('vocabulary').select('*').order('created_at', { ascending: false })
+        ]);
+
+        const books = (booksRes.data || []).map(b => ({
+          id: b.id as any,
+          title: b.title,
+          author: b.author,
+          status: b.status,
+          rating: b.rating || undefined,
+          dateAdded: b.date_added,
+          tags: b.tags || []
+        }));
+
+        const jobs = (jobsRes.data || []).map(j => ({
+          id: j.id as any,
+          company: j.company,
+          position: j.position,
+          status: j.status,
+          dateAdded: j.date_applied,
+          tags: j.tags || []
+        }));
+
+        const vocab = (vocabRes.data || []).map(v => ({
+          id: v.id as any,
+          word: v.word,
+          trans: v.translation,
+          lang: v.language,
+          mastery: v.mastery,
+          dateAdded: v.date_added,
+          tags: v.tags || []
+        }));
+
+        setData({ books, jobs, vocab });
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setToast({ message: 'Error loading data', type: 'error' });
+      }
+    };
+
+    loadData();
+  }, [user]);
 
   useEffect(() => {
     if (darkMode) {
@@ -202,21 +279,54 @@ const Index = () => {
   };
 
   // CRUD handlers for Books
-  const handleSaveBook = (book: Omit<BookItem, 'id'> & { id?: number }) => {
-    if (book.id) {
-      setData(prev => ({
-        ...prev,
-        books: prev.books.map(b => b.id === book.id ? book as BookItem : b)
-      }));
-      setToast({ message: '📚 Book updated!', type: 'success' });
-    } else {
-      const newBook = { ...book, id: Date.now() } as BookItem;
-      setData(prev => ({ ...prev, books: [...prev.books, newBook] }));
-      setToast({ message: '📚 Book added!', type: 'success' });
+  const handleSaveBook = async (book: Omit<BookItem, 'id'> & { id?: any }) => {
+    try {
+      if (book.id) {
+        const { error } = await supabase.from('books').update({
+          title: book.title,
+          author: book.author,
+          status: book.status,
+          rating: book.rating,
+          date_added: book.dateAdded,
+          tags: book.tags
+        }).eq('id', book.id);
+        
+        if (error) throw error;
+        
+        setData(prev => ({
+          ...prev,
+          books: prev.books.map(b => b.id === book.id ? book as BookItem : b)
+        }));
+        setToast({ message: '📚 Book updated!', type: 'success' });
+      } else {
+        const { data: newBook, error } = await supabase.from('books').insert({
+          user_id: user?.id,
+          title: book.title,
+          author: book.author,
+          status: book.status,
+          rating: book.rating,
+          date_added: book.dateAdded,
+          tags: book.tags
+        }).select().single();
+        
+        if (error) throw error;
+        
+        setData(prev => ({ ...prev, books: [...prev.books, {
+          id: newBook.id,
+          title: newBook.title,
+          author: newBook.author,
+          status: newBook.status,
+          rating: newBook.rating || undefined,
+          dateAdded: newBook.date_added,
+          tags: newBook.tags || []
+        }] }));
+        setToast({ message: '📚 Book added!', type: 'success' });
+      }
+      setShowBookForm(false);
+      setEditingBook(undefined);
+    } catch (error: any) {
+      setToast({ message: `Error: ${error.message}`, type: 'error' });
     }
-    setShowBookForm(false);
-    setEditingBook(undefined);
-    setUnsavedChanges(prev => prev + 1);
   };
 
   const handleEditBook = (book: BookItem) => {
@@ -224,28 +334,64 @@ const Index = () => {
     setShowBookForm(true);
   };
 
-  const handleDeleteBook = (id: number) => {
-    setData(prev => ({ ...prev, books: prev.books.filter(b => b.id !== id) }));
-    setToast({ message: '🗑️ Book deleted!', type: 'success' });
-    setUnsavedChanges(prev => prev + 1);
+  const handleDeleteBook = async (id: any) => {
+    try {
+      const { error } = await supabase.from('books').delete().eq('id', id);
+      if (error) throw error;
+      
+      setData(prev => ({ ...prev, books: prev.books.filter(b => b.id !== id) }));
+      setToast({ message: '🗑️ Book deleted!', type: 'success' });
+    } catch (error: any) {
+      setToast({ message: `Error: ${error.message}`, type: 'error' });
+    }
   };
 
   // CRUD handlers for Jobs
-  const handleSaveJob = (job: Omit<JobItem, 'id'> & { id?: number }) => {
-    if (job.id) {
-      setData(prev => ({
-        ...prev,
-        jobs: prev.jobs.map(j => j.id === job.id ? job as JobItem : j)
-      }));
-      setToast({ message: '💼 Job updated!', type: 'success' });
-    } else {
-      const newJob = { ...job, id: Date.now() } as JobItem;
-      setData(prev => ({ ...prev, jobs: [...prev.jobs, newJob] }));
-      setToast({ message: '💼 Job added!', type: 'success' });
+  const handleSaveJob = async (job: Omit<JobItem, 'id'> & { id?: any }) => {
+    try {
+      if (job.id) {
+        const { error } = await supabase.from('jobs').update({
+          company: job.company,
+          position: job.position,
+          status: job.status,
+          date_applied: job.dateAdded,
+          tags: job.tags
+        }).eq('id', job.id);
+        
+        if (error) throw error;
+        
+        setData(prev => ({
+          ...prev,
+          jobs: prev.jobs.map(j => j.id === job.id ? job as JobItem : j)
+        }));
+        setToast({ message: '💼 Job updated!', type: 'success' });
+      } else {
+        const { data: newJob, error } = await supabase.from('jobs').insert({
+          user_id: user?.id,
+          company: job.company,
+          position: job.position,
+          status: job.status,
+          date_applied: job.dateAdded,
+          tags: job.tags
+        }).select().single();
+        
+        if (error) throw error;
+        
+        setData(prev => ({ ...prev, jobs: [...prev.jobs, {
+          id: newJob.id,
+          company: newJob.company,
+          position: newJob.position,
+          status: newJob.status,
+          dateAdded: newJob.date_applied,
+          tags: newJob.tags || []
+        }] }));
+        setToast({ message: '💼 Job added!', type: 'success' });
+      }
+      setShowJobForm(false);
+      setEditingJob(undefined);
+    } catch (error: any) {
+      setToast({ message: `Error: ${error.message}`, type: 'error' });
     }
-    setShowJobForm(false);
-    setEditingJob(undefined);
-    setUnsavedChanges(prev => prev + 1);
   };
 
   const handleEditJob = (job: JobItem) => {
@@ -253,28 +399,67 @@ const Index = () => {
     setShowJobForm(true);
   };
 
-  const handleDeleteJob = (id: number) => {
-    setData(prev => ({ ...prev, jobs: prev.jobs.filter(j => j.id !== id) }));
-    setToast({ message: '🗑️ Job deleted!', type: 'success' });
-    setUnsavedChanges(prev => prev + 1);
+  const handleDeleteJob = async (id: any) => {
+    try {
+      const { error } = await supabase.from('jobs').delete().eq('id', id);
+      if (error) throw error;
+      
+      setData(prev => ({ ...prev, jobs: prev.jobs.filter(j => j.id !== id) }));
+      setToast({ message: '🗑️ Job deleted!', type: 'success' });
+    } catch (error: any) {
+      setToast({ message: `Error: ${error.message}`, type: 'error' });
+    }
   };
 
   // CRUD handlers for Vocabulary
-  const handleSaveVocab = (vocab: Omit<VocabItem, 'id'> & { id?: number }) => {
-    if (vocab.id) {
-      setData(prev => ({
-        ...prev,
-        vocab: prev.vocab.map(v => v.id === vocab.id ? vocab as VocabItem : v)
-      }));
-      setToast({ message: '📖 Vocabulary updated!', type: 'success' });
-    } else {
-      const newVocab = { ...vocab, id: Date.now() } as VocabItem;
-      setData(prev => ({ ...prev, vocab: [...prev.vocab, newVocab] }));
-      setToast({ message: '📖 Vocabulary added!', type: 'success' });
+  const handleSaveVocab = async (vocab: Omit<VocabItem, 'id'> & { id?: any }) => {
+    try {
+      if (vocab.id) {
+        const { error } = await supabase.from('vocabulary').update({
+          word: vocab.word,
+          translation: vocab.trans,
+          language: vocab.lang,
+          mastery: vocab.mastery,
+          date_added: vocab.dateAdded,
+          tags: vocab.tags
+        }).eq('id', vocab.id);
+        
+        if (error) throw error;
+        
+        setData(prev => ({
+          ...prev,
+          vocab: prev.vocab.map(v => v.id === vocab.id ? vocab as VocabItem : v)
+        }));
+        setToast({ message: '📖 Vocabulary updated!', type: 'success' });
+      } else {
+        const { data: newVocab, error } = await supabase.from('vocabulary').insert({
+          user_id: user?.id,
+          word: vocab.word,
+          translation: vocab.trans,
+          language: vocab.lang,
+          mastery: vocab.mastery,
+          date_added: vocab.dateAdded,
+          tags: vocab.tags
+        }).select().single();
+        
+        if (error) throw error;
+        
+        setData(prev => ({ ...prev, vocab: [...prev.vocab, {
+          id: newVocab.id,
+          word: newVocab.word,
+          trans: newVocab.translation,
+          lang: newVocab.language,
+          mastery: newVocab.mastery,
+          dateAdded: newVocab.date_added,
+          tags: newVocab.tags || []
+        }] }));
+        setToast({ message: '📖 Vocabulary added!', type: 'success' });
+      }
+      setShowVocabForm(false);
+      setEditingVocab(undefined);
+    } catch (error: any) {
+      setToast({ message: `Error: ${error.message}`, type: 'error' });
     }
-    setShowVocabForm(false);
-    setEditingVocab(undefined);
-    setUnsavedChanges(prev => prev + 1);
   };
 
   const handleEditVocab = (vocab: VocabItem) => {
@@ -282,10 +467,21 @@ const Index = () => {
     setShowVocabForm(true);
   };
 
-  const handleDeleteVocab = (id: number) => {
-    setData(prev => ({ ...prev, vocab: prev.vocab.filter(v => v.id !== id) }));
-    setToast({ message: '🗑️ Vocabulary deleted!', type: 'success' });
-    setUnsavedChanges(prev => prev + 1);
+  const handleDeleteVocab = async (id: any) => {
+    try {
+      const { error } = await supabase.from('vocabulary').delete().eq('id', id);
+      if (error) throw error;
+      
+      setData(prev => ({ ...prev, vocab: prev.vocab.filter(v => v.id !== id) }));
+      setToast({ message: '🗑️ Vocabulary deleted!', type: 'success' });
+    } catch (error: any) {
+      setToast({ message: `Error: ${error.message}`, type: 'error' });
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/auth');
   };
 
   const stats = {
@@ -303,6 +499,17 @@ const Index = () => {
     { id: 'career' as TabType, label: 'Career', icon: Briefcase },
     { id: 'language' as TabType, label: 'Language', icon: Languages }
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isUnlocked) {
     return <LockScreen onUnlock={() => setIsUnlocked(true)} />;
@@ -372,6 +579,16 @@ const Index = () => {
                 className="rounded-xl hover:scale-105 transition-transform"
               >
                 {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </Button>
+              
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                size="icon"
+                className="rounded-xl hover:scale-105 transition-transform"
+                title="Logout"
+              >
+                <LogOut className="h-5 w-5" />
               </Button>
             </div>
           </div>

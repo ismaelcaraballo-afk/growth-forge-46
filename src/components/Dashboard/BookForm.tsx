@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface BookFormProps {
   book?: BookItem;
-  onSave: (book: Omit<BookItem, 'id'> & { id?: number }) => void;
+  onSave: (book: Omit<BookItem, 'id'> & { id?: string | number }) => void;
   onCancel: () => void;
 }
 
@@ -17,7 +17,7 @@ export const BookForm = ({ book, onSave, onCancel }: BookFormProps) => {
   const [title, setTitle] = useState(book?.title || '');
   const [author, setAuthor] = useState(book?.author || '');
   const [pages, setPages] = useState(book?.pages?.toString() || '');
-  const [status, setStatus] = useState<'reading' | 'completed' | 'wishlist'>(book?.status || 'reading');
+  const [status, setStatus] = useState(book?.status || 'reading');
   const [rating, setRating] = useState(book?.rating?.toString() || '0');
   const [tags, setTags] = useState(book?.tags?.join(', ') || '');
 

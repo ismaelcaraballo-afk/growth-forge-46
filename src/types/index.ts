@@ -1,25 +1,25 @@
 export interface Book {
-  id: number;
+  id: string | number;
   title: string;
   author: string;
-  pages: number;
-  status: 'reading' | 'completed' | 'wishlist';
+  pages?: number;
+  status: string;
   rating?: number;
   dateAdded: string;
   tags?: string[];
 }
 
 export interface Job {
-  id: number;
+  id: string | number;
   company: string;
   position: string;
-  status: 'applied' | 'interview' | 'offer' | 'rejected';
+  status: string;
   dateAdded: string;
   tags?: string[];
 }
 
 export interface Vocabulary {
-  id: number;
+  id: string | number;
   word: string;
   trans: string;
   lang: string;

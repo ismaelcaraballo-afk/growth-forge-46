@@ -9,7 +9,7 @@ import { Slider } from '@/components/ui/slider';
 
 interface VocabFormProps {
   vocab?: VocabItem;
-  onSave: (vocab: Omit<VocabItem, 'id'> & { id?: number }) => void;
+  onSave: (vocab: Omit<VocabItem, 'id'> & { id?: string | number }) => void;
   onCancel: () => void;
 }
 

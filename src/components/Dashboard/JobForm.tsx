@@ -9,14 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface JobFormProps {
   job?: JobItem;
-  onSave: (job: Omit<JobItem, 'id'> & { id?: number }) => void;
+  onSave: (job: Omit<JobItem, 'id'> & { id?: string | number }) => void;
   onCancel: () => void;
 }
 
 export const JobForm = ({ job, onSave, onCancel }: JobFormProps) => {
   const [company, setCompany] = useState(job?.company || '');
   const [position, setPosition] = useState(job?.position || '');
-  const [status, setStatus] = useState<'applied' | 'interview' | 'offer' | 'rejected'>(job?.status || 'applied');
+  const [status, setStatus] = useState(job?.status || 'applied');
   const [tags, setTags] = useState(job?.tags?.join(', ') || '');
 
   const handleSubmit = (e: React.FormEvent) => {

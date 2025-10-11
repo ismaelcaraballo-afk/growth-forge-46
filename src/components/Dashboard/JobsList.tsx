@@ -7,7 +7,7 @@ import { JobItem } from '@/types';
 interface JobsListProps {
   jobs: JobItem[];
   onEdit: (job: JobItem) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string | number) => void;
 }
 
 export const JobsList = ({ jobs, onEdit, onDelete }: JobsListProps) => {

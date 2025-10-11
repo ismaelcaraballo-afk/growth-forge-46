@@ -8,7 +8,7 @@ import { VocabItem } from '@/types';
 interface VocabListProps {
   vocab: VocabItem[];
   onEdit: (vocab: VocabItem) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string | number) => void;
 }
 
 export const VocabList = ({ vocab, onEdit, onDelete }: VocabListProps) => {
