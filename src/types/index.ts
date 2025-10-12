@@ -39,7 +39,7 @@ export interface DashboardData {
   vocab: Vocabulary[];
 }
 
-export type TabType = 'dash' | 'reading' | 'career' | 'language';
+export type TabType = 'dash' | 'reading' | 'career' | 'language' | 'schema';
 
 export interface ToastMessage {
   message: string;

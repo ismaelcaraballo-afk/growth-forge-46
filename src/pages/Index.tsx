@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Briefcase, Languages, TrendingUp, Plus, Download, Upload, Moon, Sun, LogOut } from 'lucide-react';
+import { BookOpen, Briefcase, Languages, TrendingUp, Plus, Download, Upload, Moon, Sun, LogOut, Database } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { DashboardData, TabType, ToastMessage, BookItem, JobItem, VocabItem } from '@/types';
@@ -17,6 +17,12 @@ import { JobsList } from '@/components/Dashboard/JobsList';
 import { JobForm } from '@/components/Dashboard/JobForm';
 import { VocabList } from '@/components/Dashboard/VocabList';
 import { VocabForm } from '@/components/Dashboard/VocabForm';
+import { SortControls, SortField, SortOrder } from '@/components/Dashboard/SortControls';
+import { EmptyState } from '@/components/Dashboard/EmptyState';
+import { ConfirmDialog } from '@/components/Dashboard/ConfirmDialog';
+import { LoadingSkeleton } from '@/components/Dashboard/LoadingSkeleton';
+import { ProgressStats } from '@/components/Dashboard/ProgressStats';
+import { DatabaseSchema } from '@/components/Dashboard/DatabaseSchema';
 import { Button } from '@/components/ui/button';
 
 const initialData: DashboardData = {
@@ -95,26 +101,74 @@ const Index = () => {
   const [unsavedChanges, setUnsavedChanges] = useState(0);
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   const [confetti, setConfetti] = useState<Array<{ id: number; left: number; backgroundColor: string; delay: number }>>([]);
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [dataLoading, setDataLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; type: 'book' | 'job' | 'vocab' | null; id: any; title: string }>({
+    open: false,
+    type: null,
+    id: null,
+    title: ''
+  });
   
-  // Filtered data based on search
-  const filteredBooks = data.books.filter(book => 
+  // Filtered and sorted data
+  const getSortedData = <T extends BookItem | JobItem | VocabItem>(items: T[]): T[] => {
+    return [...items].sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'date':
+          comparison = new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime();
+          break;
+        case 'title':
+          if ('title' in a && 'title' in b) comparison = a.title.localeCompare(b.title);
+          break;
+        case 'company':
+          if ('company' in a && 'company' in b) comparison = a.company.localeCompare(b.company);
+          break;
+        case 'position':
+          if ('position' in a && 'position' in b) comparison = a.position.localeCompare(b.position);
+          break;
+        case 'word':
+          if ('word' in a && 'word' in b) comparison = a.word.localeCompare(b.word);
+          break;
+        case 'status':
+          if ('status' in a && 'status' in b) comparison = a.status.localeCompare(b.status);
+          break;
+        case 'rating':
+          if ('rating' in a && 'rating' in b) {
+            const ratingA = a.rating || 0;
+            const ratingB = b.rating || 0;
+            comparison = ratingA - ratingB;
+          }
+          break;
+        case 'mastery':
+          if ('mastery' in a && 'mastery' in b) comparison = a.mastery - b.mastery;
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  };
+  
+  const filteredBooks = getSortedData(data.books.filter(book => 
     book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     book.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
     book.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  ));
   
-  const filteredJobs = data.jobs.filter(job =>
+  const filteredJobs = getSortedData(data.jobs.filter(job =>
     job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
     job.position.toLowerCase().includes(searchQuery.toLowerCase()) ||
     job.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  ));
   
-  const filteredVocab = data.vocab.filter(vocab =>
+  const filteredVocab = getSortedData(data.vocab.filter(vocab =>
     vocab.word.toLowerCase().includes(searchQuery.toLowerCase()) ||
     vocab.trans.toLowerCase().includes(searchQuery.toLowerCase()) ||
     vocab.lang.toLowerCase().includes(searchQuery.toLowerCase()) ||
     vocab.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  ));
   
   // Form states
   const [showBookForm, setShowBookForm] = useState(false);
@@ -149,6 +203,7 @@ const Index = () => {
     if (!user) return;
 
     const loadData = async () => {
+      setDataLoading(true);
       try {
         const [booksRes, jobsRes, vocabRes] = await Promise.all([
           supabase.from('books').select('*').order('created_at', { ascending: false }),
@@ -189,6 +244,8 @@ const Index = () => {
       } catch (error) {
         console.error('Error loading data:', error);
         setToast({ message: 'Error loading data', type: 'error' });
+      } finally {
+        setDataLoading(false);
       }
     };
 
@@ -334,15 +391,39 @@ const Index = () => {
     setShowBookForm(true);
   };
 
-  const handleDeleteBook = async (id: any) => {
+  const handleDeleteBook = (id: any) => {
+    const book = data.books.find(b => b.id === id);
+    setDeleteConfirm({
+      open: true,
+      type: 'book',
+      id,
+      title: book?.title || 'this book'
+    });
+  };
+
+  const confirmDelete = async () => {
+    const { type, id } = deleteConfirm;
     try {
-      const { error } = await supabase.from('books').delete().eq('id', id);
-      if (error) throw error;
-      
-      setData(prev => ({ ...prev, books: prev.books.filter(b => b.id !== id) }));
-      setToast({ message: '🗑️ Book deleted!', type: 'success' });
+      if (type === 'book') {
+        const { error } = await supabase.from('books').delete().eq('id', id);
+        if (error) throw error;
+        setData(prev => ({ ...prev, books: prev.books.filter(b => b.id !== id) }));
+        setToast({ message: '🗑️ Book deleted!', type: 'success' });
+      } else if (type === 'job') {
+        const { error } = await supabase.from('jobs').delete().eq('id', id);
+        if (error) throw error;
+        setData(prev => ({ ...prev, jobs: prev.jobs.filter(j => j.id !== id) }));
+        setToast({ message: '🗑️ Job deleted!', type: 'success' });
+      } else if (type === 'vocab') {
+        const { error } = await supabase.from('vocabulary').delete().eq('id', id);
+        if (error) throw error;
+        setData(prev => ({ ...prev, vocab: prev.vocab.filter(v => v.id !== id) }));
+        setToast({ message: '🗑️ Vocabulary deleted!', type: 'success' });
+      }
     } catch (error: any) {
       setToast({ message: `Error: ${error.message}`, type: 'error' });
+    } finally {
+      setDeleteConfirm({ open: false, type: null, id: null, title: '' });
     }
   };
 
@@ -399,16 +480,14 @@ const Index = () => {
     setShowJobForm(true);
   };
 
-  const handleDeleteJob = async (id: any) => {
-    try {
-      const { error } = await supabase.from('jobs').delete().eq('id', id);
-      if (error) throw error;
-      
-      setData(prev => ({ ...prev, jobs: prev.jobs.filter(j => j.id !== id) }));
-      setToast({ message: '🗑️ Job deleted!', type: 'success' });
-    } catch (error: any) {
-      setToast({ message: `Error: ${error.message}`, type: 'error' });
-    }
+  const handleDeleteJob = (id: any) => {
+    const job = data.jobs.find(j => j.id === id);
+    setDeleteConfirm({
+      open: true,
+      type: 'job',
+      id,
+      title: `${job?.company} - ${job?.position}` || 'this job'
+    });
   };
 
   // CRUD handlers for Vocabulary
@@ -467,16 +546,14 @@ const Index = () => {
     setShowVocabForm(true);
   };
 
-  const handleDeleteVocab = async (id: any) => {
-    try {
-      const { error } = await supabase.from('vocabulary').delete().eq('id', id);
-      if (error) throw error;
-      
-      setData(prev => ({ ...prev, vocab: prev.vocab.filter(v => v.id !== id) }));
-      setToast({ message: '🗑️ Vocabulary deleted!', type: 'success' });
-    } catch (error: any) {
-      setToast({ message: `Error: ${error.message}`, type: 'error' });
-    }
+  const handleDeleteVocab = (id: any) => {
+    const vocab = data.vocab.find(v => v.id === id);
+    setDeleteConfirm({
+      open: true,
+      type: 'vocab',
+      id,
+      title: vocab?.word || 'this vocabulary'
+    });
   };
 
   const handleLogout = async () => {
@@ -497,8 +574,14 @@ const Index = () => {
     { id: 'dash' as TabType, label: 'Dashboard', icon: TrendingUp },
     { id: 'reading' as TabType, label: 'Reading', icon: BookOpen },
     { id: 'career' as TabType, label: 'Career', icon: Briefcase },
-    { id: 'language' as TabType, label: 'Language', icon: Languages }
+    { id: 'language' as TabType, label: 'Language', icon: Languages },
+    { id: 'schema' as TabType, label: 'Schema', icon: Database }
   ];
+
+  const handleSortChange = (field: SortField, order: SortOrder) => {
+    setSortField(field);
+    setSortOrder(order);
+  };
 
   if (loading) {
     return (
@@ -519,6 +602,13 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {toast && <Toast message={toast.message} type={toast.type} />}
       <Confetti pieces={confetti} />
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => setDeleteConfirm({ ...deleteConfirm, open })}
+        title="Confirm Delete"
+        description={`Are you sure you want to delete "${deleteConfirm.title}"? This action cannot be undone.`}
+        onConfirm={confirmDelete}
+      />
 
       {showWelcomeModal && (
         <WelcomeModal 
@@ -661,6 +751,9 @@ const Index = () => {
               />
             </div>
 
+            {/* Progress Stats */}
+            <ProgressStats data={data} />
+
             {/* AI Insights Section */}
             <AIInsights data={data} currentTab={tab} />
 
@@ -716,11 +809,41 @@ const Index = () => {
                 }}
               />
             ) : (
-              <BooksList
-                books={filteredBooks}
-                onEdit={handleEditBook}
-                onDelete={handleDeleteBook}
-              />
+              <>
+                {dataLoading ? (
+                  <LoadingSkeleton count={3} />
+                ) : filteredBooks.length === 0 ? (
+                  <EmptyState
+                    icon={BookOpen}
+                    title="No books yet"
+                    description="Start tracking your reading journey by adding your first book!"
+                    actionLabel="Add Book"
+                    onAction={() => {
+                      setEditingBook(undefined);
+                      setShowBookForm(true);
+                    }}
+                  />
+                ) : (
+                  <>
+                    <SortControls
+                      fields={[
+                        { value: 'date', label: 'Date' },
+                        { value: 'title', label: 'Title' },
+                        { value: 'status', label: 'Status' },
+                        { value: 'rating', label: 'Rating' }
+                      ]}
+                      currentField={sortField}
+                      currentOrder={sortOrder}
+                      onSortChange={handleSortChange}
+                    />
+                    <BooksList
+                      books={filteredBooks}
+                      onEdit={handleEditBook}
+                      onDelete={handleDeleteBook}
+                    />
+                  </>
+                )}
+              </>
             )}
           </div>
         )}
@@ -754,11 +877,41 @@ const Index = () => {
                 }}
               />
             ) : (
-              <JobsList
-                jobs={filteredJobs}
-                onEdit={handleEditJob}
-                onDelete={handleDeleteJob}
-              />
+              <>
+                {dataLoading ? (
+                  <LoadingSkeleton count={3} />
+                ) : filteredJobs.length === 0 ? (
+                  <EmptyState
+                    icon={Briefcase}
+                    title="No job applications yet"
+                    description="Start tracking your career journey by adding your first job application!"
+                    actionLabel="Add Job"
+                    onAction={() => {
+                      setEditingJob(undefined);
+                      setShowJobForm(true);
+                    }}
+                  />
+                ) : (
+                  <>
+                    <SortControls
+                      fields={[
+                        { value: 'date', label: 'Date' },
+                        { value: 'company', label: 'Company' },
+                        { value: 'position', label: 'Position' },
+                        { value: 'status', label: 'Status' }
+                      ]}
+                      currentField={sortField}
+                      currentOrder={sortOrder}
+                      onSortChange={handleSortChange}
+                    />
+                    <JobsList
+                      jobs={filteredJobs}
+                      onEdit={handleEditJob}
+                      onDelete={handleDeleteJob}
+                    />
+                  </>
+                )}
+              </>
             )}
           </div>
         )}
@@ -792,12 +945,48 @@ const Index = () => {
                 }}
               />
             ) : (
-              <VocabList
-                vocab={filteredVocab}
-                onEdit={handleEditVocab}
-                onDelete={handleDeleteVocab}
-              />
+              <>
+                {dataLoading ? (
+                  <LoadingSkeleton count={3} />
+                ) : filteredVocab.length === 0 ? (
+                  <EmptyState
+                    icon={Languages}
+                    title="No vocabulary yet"
+                    description="Start building your vocabulary by adding your first word!"
+                    actionLabel="Add Vocabulary"
+                    onAction={() => {
+                      setEditingVocab(undefined);
+                      setShowVocabForm(true);
+                    }}
+                  />
+                ) : (
+                  <>
+                    <SortControls
+                      fields={[
+                        { value: 'date', label: 'Date' },
+                        { value: 'word', label: 'Word' },
+                        { value: 'mastery', label: 'Mastery' }
+                      ]}
+                      currentField={sortField}
+                      currentOrder={sortOrder}
+                      onSortChange={handleSortChange}
+                    />
+                    <VocabList
+                      vocab={filteredVocab}
+                      onEdit={handleEditVocab}
+                      onDelete={handleDeleteVocab}
+                    />
+                  </>
+                )}
+              </>
             )}
+          </div>
+        )}
+
+        {/* Schema Tab */}
+        {tab === 'schema' && (
+          <div className="space-y-6 pb-12 animate-in fade-in duration-500">
+            <DatabaseSchema />
           </div>
         )}
       </div>
