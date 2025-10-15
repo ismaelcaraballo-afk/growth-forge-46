@@ -9,9 +9,11 @@ interface BooksListProps {
   books: BookItem[];
   onEdit: (book: BookItem) => void;
   onDelete: (id: string | number) => void;
+  selectedItems?: string[];
+  onSelectItem?: (id: string, selected: boolean) => void;
 }
 
-export const BooksList = ({ books, onEdit, onDelete }: BooksListProps) => {
+export const BooksList = ({ books, onEdit, onDelete, selectedItems = [], onSelectItem }: BooksListProps) => {
   const getStatusColor = (status: string) => {
     if (status === 'completed') return 'bg-success/10 text-success border-success/20';
     if (status === 'reading') return 'bg-primary/10 text-primary border-primary/20';
@@ -42,32 +44,42 @@ export const BooksList = ({ books, onEdit, onDelete }: BooksListProps) => {
       {books.map((book) => (
         <Card key={book.id} className="p-4 sm:p-6 hover:shadow-lg transition-shadow">
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-            <div className="flex-1 w-full">
-              <div className="flex items-start gap-3 mb-2">
-                <Book className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg sm:text-xl font-bold text-foreground mb-1 break-words">{book.title}</h3>
-                  <p className="text-sm sm:text-base text-muted-foreground break-words">{book.author}</p>
+            <div className="flex items-start gap-3 flex-1 w-full">
+              {onSelectItem && (
+                <input
+                  type="checkbox"
+                  checked={selectedItems.includes(`book-${book.id}`)}
+                  onChange={(e) => onSelectItem(`book-${book.id}`, e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 cursor-pointer"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start gap-3 mb-2">
+                  <Book className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg sm:text-xl font-bold text-foreground mb-1 break-words">{book.title}</h3>
+                    <p className="text-sm sm:text-base text-muted-foreground break-words">{book.author}</p>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-2 mt-3 mb-3">
-                <Badge className={getStatusColor(book.status)}>
-                  {book.status}
-                </Badge>
-                <Badge variant="outline">{book.pages} pages</Badge>
-                {book.tags?.map((tag, i) => (
-                  <Badge key={i} variant="secondary">{tag}</Badge>
-                ))}
-              </div>
+                
+                <div className="flex flex-wrap gap-2 mt-3 mb-3">
+                  <Badge className={getStatusColor(book.status)}>
+                    {book.status}
+                  </Badge>
+                  <Badge variant="outline">{book.pages} pages</Badge>
+                  {book.tags?.map((tag, i) => (
+                    <Badge key={i} variant="secondary">{tag}</Badge>
+                  ))}
+                </div>
 
-              <div className="flex items-center gap-1 mt-2">
-                {renderStars(book.rating)}
+                <div className="flex items-center gap-1 mt-2">
+                  {renderStars(book.rating)}
+                </div>
+                
+                <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+                  Added: {new Date(book.dateAdded).toLocaleDateString()}
+                </p>
               </div>
-              
-              <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-                Added: {new Date(book.dateAdded).toLocaleDateString()}
-              </p>
             </div>
 
             <div className="flex sm:flex-col gap-2 w-full sm:w-auto">

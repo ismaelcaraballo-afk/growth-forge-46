@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Briefcase, Languages, TrendingUp, Plus, Download, Upload, Moon, Sun, LogOut, Database } from 'lucide-react';
+import { BookOpen, Briefcase, Languages, TrendingUp, Plus, Download, Upload, Moon, Sun, LogOut, Database, Keyboard, Undo2, Redo2, FileSpreadsheet, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { DashboardData, TabType, ToastMessage, BookItem, JobItem, VocabItem } from '@/types';
@@ -23,6 +23,8 @@ import { ConfirmDialog } from '@/components/Dashboard/ConfirmDialog';
 import { LoadingSkeleton } from '@/components/Dashboard/LoadingSkeleton';
 import { ProgressStats } from '@/components/Dashboard/ProgressStats';
 import { DatabaseSchema } from '@/components/Dashboard/DatabaseSchema';
+import { KeyboardShortcuts } from '@/components/Dashboard/KeyboardShortcuts';
+import { ProgressChart } from '@/components/Dashboard/ProgressChart';
 import { Button } from '@/components/ui/button';
 
 const initialData: DashboardData = {
@@ -110,6 +112,12 @@ const Index = () => {
     id: null,
     title: ''
   });
+  
+  // New features state
+  const [history, setHistory] = useState<DashboardData[]>([initialData]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   
   // Filtered and sorted data
   const getSortedData = <T extends BookItem | JobItem | VocabItem>(items: T[]): T[] => {
@@ -260,6 +268,52 @@ const Index = () => {
     }
   }, [darkMode]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyboard = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifier = isMac ? e.metaKey : e.ctrlKey;
+      
+      if (modifier && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+        searchInput?.focus();
+      } else if (modifier && e.key === 'n') {
+        e.preventDefault();
+        handleFABClick();
+      } else if (modifier && e.key === 'e' && !e.shiftKey) {
+        e.preventDefault();
+        exportToJSON();
+      } else if (modifier && e.key === 'e' && e.shiftKey) {
+        e.preventDefault();
+        exportToCSV();
+      } else if (modifier && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if (modifier && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        redo();
+      } else if (modifier && e.key === 'd') {
+        e.preventDefault();
+        setDarkMode(!darkMode);
+      } else if (modifier && e.key === '/') {
+        e.preventDefault();
+        setShowKeyboardShortcuts(true);
+      } else if (e.key >= '1' && e.key <= '5') {
+        const tabs: TabType[] = ['dash', 'reading', 'career', 'language', 'schema'];
+        setTab(tabs[parseInt(e.key) - 1]);
+      } else if (e.key === 'Escape') {
+        setShowBookForm(false);
+        setShowJobForm(false);
+        setShowVocabForm(false);
+        setShowKeyboardShortcuts(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyboard);
+    return () => window.removeEventListener('keydown', handleKeyboard);
+  }, [darkMode, tab]);
+
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 3000);
@@ -283,6 +337,45 @@ const Index = () => {
     }));
     setConfetti(pieces);
     setTimeout(() => setConfetti([]), 3000);
+  };
+
+  // Undo/Redo functionality
+  const saveToHistory = useCallback((newData: DashboardData) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newData);
+    if (newHistory.length > 50) newHistory.shift();
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    setData(newData);
+  }, [history, historyIndex]);
+
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      setData(history[historyIndex - 1]);
+      setToast({ message: '↩️ Undo', type: 'success' });
+    }
+  }, [history, historyIndex]);
+
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setData(history[historyIndex + 1]);
+      setToast({ message: '↪️ Redo', type: 'success' });
+    }
+  }, [history, historyIndex]);
+
+  const handleFABClick = () => {
+    if (tab === 'reading') {
+      setEditingBook(undefined);
+      setShowBookForm(true);
+    } else if (tab === 'career') {
+      setEditingJob(undefined);
+      setShowJobForm(true);
+    } else if (tab === 'language') {
+      setEditingVocab(undefined);
+      setShowVocabForm(true);
+    }
   };
 
   const handleStatClick = (type: 'books' | 'jobs' | 'words') => {
@@ -311,6 +404,30 @@ const Index = () => {
     setUnsavedChanges(0);
   };
 
+  const exportToCSV = () => {
+    const books = data.books.map(b => 
+      `Book,${b.title},${b.author},${b.status},${b.rating || ''},${b.dateAdded}`
+    ).join('\n');
+    const jobs = data.jobs.map(j => 
+      `Job,${j.company},${j.position},${j.status},${j.dateAdded}`
+    ).join('\n');
+    const vocab = data.vocab.map(v => 
+      `Vocab,${v.word},${v.trans},${v.lang},${v.mastery},${v.dateAdded}`
+    ).join('\n');
+    const csv = `Type,Title/Word,Author/Translation,Status/Language,Rating/Mastery,Date\n${books}\n${jobs}\n${vocab}`;
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `growth-dashboard-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setToast({ message: '📊 CSV exported successfully!', type: 'success' });
+  };
+
   const handleJSONUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -335,7 +452,6 @@ const Index = () => {
     e.target.value = '';
   };
 
-  // CRUD handlers for Books
   const handleSaveBook = async (book: Omit<BookItem, 'id'> & { id?: any }) => {
     try {
       if (book.id) {
@@ -350,10 +466,11 @@ const Index = () => {
         
         if (error) throw error;
         
-        setData(prev => ({
-          ...prev,
-          books: prev.books.map(b => b.id === book.id ? book as BookItem : b)
-        }));
+        const updatedData = {
+          ...data,
+          books: data.books.map(b => b.id === book.id ? book as BookItem : b)
+        };
+        saveToHistory(updatedData);
         setToast({ message: '📚 Book updated!', type: 'success' });
       } else {
         const { data: newBook, error } = await supabase.from('books').insert({
@@ -368,7 +485,7 @@ const Index = () => {
         
         if (error) throw error;
         
-        setData(prev => ({ ...prev, books: [...prev.books, {
+        const updatedData = { ...data, books: [...data.books, {
           id: newBook.id,
           title: newBook.title,
           author: newBook.author,
@@ -376,8 +493,10 @@ const Index = () => {
           rating: newBook.rating || undefined,
           dateAdded: newBook.date_added,
           tags: newBook.tags || []
-        }] }));
+        }] };
+        saveToHistory(updatedData);
         setToast({ message: '📚 Book added!', type: 'success' });
+        if (book.status === 'completed') triggerConfetti();
       }
       setShowBookForm(false);
       setEditingBook(undefined);
@@ -407,23 +526,56 @@ const Index = () => {
       if (type === 'book') {
         const { error } = await supabase.from('books').delete().eq('id', id);
         if (error) throw error;
-        setData(prev => ({ ...prev, books: prev.books.filter(b => b.id !== id) }));
+        const updatedData = { ...data, books: data.books.filter(b => b.id !== id) };
+        saveToHistory(updatedData);
         setToast({ message: '🗑️ Book deleted!', type: 'success' });
       } else if (type === 'job') {
         const { error } = await supabase.from('jobs').delete().eq('id', id);
         if (error) throw error;
-        setData(prev => ({ ...prev, jobs: prev.jobs.filter(j => j.id !== id) }));
+        const updatedData = { ...data, jobs: data.jobs.filter(j => j.id !== id) };
+        saveToHistory(updatedData);
         setToast({ message: '🗑️ Job deleted!', type: 'success' });
       } else if (type === 'vocab') {
         const { error } = await supabase.from('vocabulary').delete().eq('id', id);
         if (error) throw error;
-        setData(prev => ({ ...prev, vocab: prev.vocab.filter(v => v.id !== id) }));
+        const updatedData = { ...data, vocab: data.vocab.filter(v => v.id !== id) };
+        saveToHistory(updatedData);
         setToast({ message: '🗑️ Vocabulary deleted!', type: 'success' });
       }
     } catch (error: any) {
       setToast({ message: `Error: ${error.message}`, type: 'error' });
     } finally {
       setDeleteConfirm({ open: false, type: null, id: null, title: '' });
+    }
+  };
+
+  // Batch delete functionality
+  const handleBatchDelete = async () => {
+    if (selectedItems.length === 0) return;
+    if (!confirm(`Delete ${selectedItems.length} selected items?`)) return;
+    
+    try {
+      const bookIds = selectedItems.filter(id => id.startsWith('book-')).map(id => id.replace('book-', ''));
+      const jobIds = selectedItems.filter(id => id.startsWith('job-')).map(id => id.replace('job-', ''));
+      const vocabIds = selectedItems.filter(id => id.startsWith('vocab-')).map(id => id.replace('vocab-', ''));
+      
+      await Promise.all([
+        bookIds.length > 0 && supabase.from('books').delete().in('id', bookIds),
+        jobIds.length > 0 && supabase.from('jobs').delete().in('id', jobIds),
+        vocabIds.length > 0 && supabase.from('vocabulary').delete().in('id', vocabIds)
+      ]);
+      
+      const updatedData = {
+        books: data.books.filter(b => !bookIds.includes(b.id.toString())),
+        jobs: data.jobs.filter(j => !jobIds.includes(j.id.toString())),
+        vocab: data.vocab.filter(v => !vocabIds.includes(v.id.toString()))
+      };
+      
+      saveToHistory(updatedData);
+      setSelectedItems([]);
+      setToast({ message: `🗑️ Deleted ${selectedItems.length} items!`, type: 'success' });
+    } catch (error: any) {
+      setToast({ message: `Error: ${error.message}`, type: 'error' });
     }
   };
 
@@ -441,10 +593,11 @@ const Index = () => {
         
         if (error) throw error;
         
-        setData(prev => ({
-          ...prev,
-          jobs: prev.jobs.map(j => j.id === job.id ? job as JobItem : j)
-        }));
+        const updatedData = {
+          ...data,
+          jobs: data.jobs.map(j => j.id === job.id ? job as JobItem : j)
+        };
+        saveToHistory(updatedData);
         setToast({ message: '💼 Job updated!', type: 'success' });
       } else {
         const { data: newJob, error } = await supabase.from('jobs').insert({
@@ -458,14 +611,15 @@ const Index = () => {
         
         if (error) throw error;
         
-        setData(prev => ({ ...prev, jobs: [...prev.jobs, {
+        const updatedData = { ...data, jobs: [...data.jobs, {
           id: newJob.id,
           company: newJob.company,
           position: newJob.position,
           status: newJob.status,
           dateAdded: newJob.date_applied,
           tags: newJob.tags || []
-        }] }));
+        }] };
+        saveToHistory(updatedData);
         setToast({ message: '💼 Job added!', type: 'success' });
       }
       setShowJobForm(false);
@@ -505,10 +659,11 @@ const Index = () => {
         
         if (error) throw error;
         
-        setData(prev => ({
-          ...prev,
-          vocab: prev.vocab.map(v => v.id === vocab.id ? vocab as VocabItem : v)
-        }));
+        const updatedData = {
+          ...data,
+          vocab: data.vocab.map(v => v.id === vocab.id ? vocab as VocabItem : v)
+        };
+        saveToHistory(updatedData);
         setToast({ message: '📖 Vocabulary updated!', type: 'success' });
       } else {
         const { data: newVocab, error } = await supabase.from('vocabulary').insert({
@@ -523,7 +678,7 @@ const Index = () => {
         
         if (error) throw error;
         
-        setData(prev => ({ ...prev, vocab: [...prev.vocab, {
+        const updatedData = { ...data, vocab: [...data.vocab, {
           id: newVocab.id,
           word: newVocab.word,
           trans: newVocab.translation,
@@ -531,8 +686,10 @@ const Index = () => {
           mastery: newVocab.mastery,
           dateAdded: newVocab.date_added,
           tags: newVocab.tags || []
-        }] }));
+        }] };
+        saveToHistory(updatedData);
         setToast({ message: '📖 Vocabulary added!', type: 'success' });
+        if (vocab.mastery >= 90) triggerConfetti();
       }
       setShowVocabForm(false);
       setEditingVocab(undefined);
@@ -617,6 +774,10 @@ const Index = () => {
         />
       )}
 
+      {showKeyboardShortcuts && (
+        <KeyboardShortcuts onClose={() => setShowKeyboardShortcuts(false)} />
+      )}
+
       {/* Header */}
       <div className="bg-card shadow-lg border-b border-border sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -629,19 +790,66 @@ const Index = () => {
               <p className="text-muted-foreground">Track reading, career & language learning</p>
             </div>
             
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-wrap">
+              {/* Undo/Redo */}
               <Button
-                onClick={exportToJSON}
-                className="gradient-green text-white hover:scale-105 transition-transform relative"
+                onClick={undo}
+                disabled={historyIndex === 0}
+                variant="outline"
+                size="icon"
+                className="rounded-xl hover:scale-105 transition-transform"
+                title="Undo (Ctrl+Z)"
               >
-                <Download className="h-4 w-4 mr-2" />
-                Export
-                {unsavedChanges > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center animate-pulse-soft">
-                    {unsavedChanges}
-                  </span>
-                )}
+                <Undo2 className="h-4 w-4" />
               </Button>
+              
+              <Button
+                onClick={redo}
+                disabled={historyIndex === history.length - 1}
+                variant="outline"
+                size="icon"
+                className="rounded-xl hover:scale-105 transition-transform"
+                title="Redo (Ctrl+Shift+Z)"
+              >
+                <Redo2 className="h-4 w-4" />
+              </Button>
+
+              {/* Batch Delete */}
+              {selectedItems.length > 0 && (
+                <Button
+                  onClick={handleBatchDelete}
+                  variant="destructive"
+                  className="hover:scale-105 transition-transform"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete ({selectedItems.length})
+                </Button>
+              )}
+              
+              {/* Export Dropdown */}
+              <div className="relative group">
+                <Button
+                  className="gradient-green text-white hover:scale-105 transition-transform"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                  {unsavedChanges > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center animate-pulse-soft">
+                      {unsavedChanges}
+                    </span>
+                  )}
+                </Button>
+                <div className="absolute top-full right-0 mt-2 w-40 bg-card rounded-xl shadow-lg border border-border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                  <button onClick={exportToJSON} className="w-full px-4 py-2 text-left hover:bg-accent rounded-t-xl text-sm flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    JSON
+                  </button>
+                  <button onClick={exportToCSV} className="w-full px-4 py-2 text-left hover:bg-accent rounded-b-xl text-sm flex items-center gap-2">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    CSV
+                  </button>
+                </div>
+              </div>
               
               <label htmlFor="json-upload">
                 <Button
@@ -667,8 +875,19 @@ const Index = () => {
                 variant="outline"
                 size="icon"
                 className="rounded-xl hover:scale-105 transition-transform"
+                title="Toggle Dark Mode (Ctrl+D)"
               >
                 {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </Button>
+              
+              <Button
+                onClick={() => setShowKeyboardShortcuts(true)}
+                variant="outline"
+                size="icon"
+                className="rounded-xl hover:scale-105 transition-transform"
+                title="Keyboard Shortcuts (Ctrl+/)"
+              >
+                <Keyboard className="h-5 w-5" />
               </Button>
               
               <Button
@@ -753,6 +972,9 @@ const Index = () => {
 
             {/* Progress Stats */}
             <ProgressStats data={data} />
+
+            {/* Progress Chart */}
+            <ProgressChart data={data} />
 
             {/* AI Insights Section */}
             <AIInsights data={data} currentTab={tab} />
@@ -840,6 +1062,14 @@ const Index = () => {
                       books={filteredBooks}
                       onEdit={handleEditBook}
                       onDelete={handleDeleteBook}
+                      selectedItems={selectedItems}
+                      onSelectItem={(id, selected) => {
+                        if (selected) {
+                          setSelectedItems([...selectedItems, id]);
+                        } else {
+                          setSelectedItems(selectedItems.filter(item => item !== id));
+                        }
+                      }}
                     />
                   </>
                 )}
@@ -908,6 +1138,14 @@ const Index = () => {
                       jobs={filteredJobs}
                       onEdit={handleEditJob}
                       onDelete={handleDeleteJob}
+                      selectedItems={selectedItems}
+                      onSelectItem={(id, selected) => {
+                        if (selected) {
+                          setSelectedItems([...selectedItems, id]);
+                        } else {
+                          setSelectedItems(selectedItems.filter(item => item !== id));
+                        }
+                      }}
                     />
                   </>
                 )}
@@ -975,6 +1213,14 @@ const Index = () => {
                       vocab={filteredVocab}
                       onEdit={handleEditVocab}
                       onDelete={handleDeleteVocab}
+                      selectedItems={selectedItems}
+                      onSelectItem={(id, selected) => {
+                        if (selected) {
+                          setSelectedItems([...selectedItems, id]);
+                        } else {
+                          setSelectedItems(selectedItems.filter(item => item !== id));
+                        }
+                      }}
                     />
                   </>
                 )}
