@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Briefcase, Languages, TrendingUp, Plus, Download, Upload, Moon, Sun, LogOut, Database, Keyboard, Undo2, Redo2, FileSpreadsheet, Trash2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import { BookOpen, Briefcase, Languages, TrendingUp, Plus, Download, Upload, Moon, Sun, Database, Keyboard, Undo2, Redo2, FileSpreadsheet, Trash2 } from 'lucide-react';
 import { DashboardData, TabType, ToastMessage, BookItem, JobItem, VocabItem } from '@/types';
 import { StatCard } from '@/components/Dashboard/StatCard';
 import { Toast } from '@/components/Dashboard/Toast';
@@ -92,7 +90,6 @@ const initialData: DashboardData = {
 
 const Index = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData>(initialData);
   const [tab, setTab] = useState<TabType>('dash');
@@ -186,79 +183,12 @@ const Index = () => {
   const [showVocabForm, setShowVocabForm] = useState(false);
   const [editingVocab, setEditingVocab] = useState<VocabItem | undefined>();
 
-  // Auth check
+  // Auth check removed - demo mode
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (!session) {
-        navigate('/auth');
-      }
-    });
+    setLoading(false);
+  }, []);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (!session) {
-        navigate('/auth');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  // Load data from Supabase
-  useEffect(() => {
-    if (!user) return;
-
-    const loadData = async () => {
-      setDataLoading(true);
-      try {
-        const [booksRes, jobsRes, vocabRes] = await Promise.all([
-          supabase.from('books').select('*').order('created_at', { ascending: false }),
-          supabase.from('jobs').select('*').order('created_at', { ascending: false }),
-          supabase.from('vocabulary').select('*').order('created_at', { ascending: false })
-        ]);
-
-        const books = (booksRes.data || []).map(b => ({
-          id: b.id as any,
-          title: b.title,
-          author: b.author,
-          status: b.status,
-          rating: b.rating || undefined,
-          dateAdded: b.date_added,
-          tags: b.tags || []
-        }));
-
-        const jobs = (jobsRes.data || []).map(j => ({
-          id: j.id as any,
-          company: j.company,
-          position: j.position,
-          status: j.status,
-          dateAdded: j.date_applied,
-          tags: j.tags || []
-        }));
-
-        const vocab = (vocabRes.data || []).map(v => ({
-          id: v.id as any,
-          word: v.word,
-          trans: v.translation,
-          lang: v.language,
-          mastery: v.mastery,
-          dateAdded: v.date_added,
-          tags: v.tags || []
-        }));
-
-        setData({ books, jobs, vocab });
-      } catch (error) {
-        console.error('Error loading data:', error);
-        setToast({ message: 'Error loading data', type: 'error' });
-      } finally {
-        setDataLoading(false);
-      }
-    };
-
-    loadData();
-  }, [user]);
+  // Demo mode - use local data only
 
   useEffect(() => {
     if (darkMode) {
@@ -452,57 +382,23 @@ const Index = () => {
     e.target.value = '';
   };
 
-  const handleSaveBook = async (book: Omit<BookItem, 'id'> & { id?: any }) => {
-    try {
-      if (book.id) {
-        const { error } = await supabase.from('books').update({
-          title: book.title,
-          author: book.author,
-          status: book.status,
-          rating: book.rating,
-          date_added: book.dateAdded,
-          tags: book.tags
-        }).eq('id', book.id);
-        
-        if (error) throw error;
-        
-        const updatedData = {
-          ...data,
-          books: data.books.map(b => b.id === book.id ? book as BookItem : b)
-        };
-        saveToHistory(updatedData);
-        setToast({ message: '📚 Book updated!', type: 'success' });
-      } else {
-        const { data: newBook, error } = await supabase.from('books').insert({
-          user_id: user?.id,
-          title: book.title,
-          author: book.author,
-          status: book.status,
-          rating: book.rating,
-          date_added: book.dateAdded,
-          tags: book.tags
-        }).select().single();
-        
-        if (error) throw error;
-        
-        const updatedData = { ...data, books: [...data.books, {
-          id: newBook.id,
-          title: newBook.title,
-          author: newBook.author,
-          status: newBook.status,
-          rating: newBook.rating || undefined,
-          dateAdded: newBook.date_added,
-          tags: newBook.tags || []
-        }] };
-        saveToHistory(updatedData);
-        setToast({ message: '📚 Book added!', type: 'success' });
-        if (book.status === 'completed') triggerConfetti();
-      }
-      setShowBookForm(false);
-      setEditingBook(undefined);
-    } catch (error: any) {
-      setToast({ message: `Error: ${error.message}`, type: 'error' });
+  const handleSaveBook = (book: Omit<BookItem, 'id'> & { id?: any }) => {
+    if (book.id) {
+      const updatedData = {
+        ...data,
+        books: data.books.map(b => b.id === book.id ? book as BookItem : b)
+      };
+      saveToHistory(updatedData);
+      setToast({ message: '📚 Book updated!', type: 'success' });
+    } else {
+      const newBook: BookItem = { ...book, id: Date.now(), dateAdded: new Date().toISOString().split('T')[0] };
+      const updatedData = { ...data, books: [...data.books, newBook] };
+      saveToHistory(updatedData);
+      setToast({ message: '📚 Book added!', type: 'success' });
+      if (book.status === 'completed') triggerConfetti();
     }
+    setShowBookForm(false);
+    setEditingBook(undefined);
   };
 
   const handleEditBook = (book: BookItem) => {
@@ -520,113 +416,61 @@ const Index = () => {
     });
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     const { type, id } = deleteConfirm;
-    try {
-      if (type === 'book') {
-        const { error } = await supabase.from('books').delete().eq('id', id);
-        if (error) throw error;
-        const updatedData = { ...data, books: data.books.filter(b => b.id !== id) };
-        saveToHistory(updatedData);
-        setToast({ message: '🗑️ Book deleted!', type: 'success' });
-      } else if (type === 'job') {
-        const { error } = await supabase.from('jobs').delete().eq('id', id);
-        if (error) throw error;
-        const updatedData = { ...data, jobs: data.jobs.filter(j => j.id !== id) };
-        saveToHistory(updatedData);
-        setToast({ message: '🗑️ Job deleted!', type: 'success' });
-      } else if (type === 'vocab') {
-        const { error } = await supabase.from('vocabulary').delete().eq('id', id);
-        if (error) throw error;
-        const updatedData = { ...data, vocab: data.vocab.filter(v => v.id !== id) };
-        saveToHistory(updatedData);
-        setToast({ message: '🗑️ Vocabulary deleted!', type: 'success' });
-      }
-    } catch (error: any) {
-      setToast({ message: `Error: ${error.message}`, type: 'error' });
-    } finally {
-      setDeleteConfirm({ open: false, type: null, id: null, title: '' });
+    if (type === 'book') {
+      const updatedData = { ...data, books: data.books.filter(b => b.id !== id) };
+      saveToHistory(updatedData);
+      setToast({ message: '🗑️ Book deleted!', type: 'success' });
+    } else if (type === 'job') {
+      const updatedData = { ...data, jobs: data.jobs.filter(j => j.id !== id) };
+      saveToHistory(updatedData);
+      setToast({ message: '🗑️ Job deleted!', type: 'success' });
+    } else if (type === 'vocab') {
+      const updatedData = { ...data, vocab: data.vocab.filter(v => v.id !== id) };
+      saveToHistory(updatedData);
+      setToast({ message: '🗑️ Vocabulary deleted!', type: 'success' });
     }
+    setDeleteConfirm({ open: false, type: null, id: null, title: '' });
   };
 
   // Batch delete functionality
-  const handleBatchDelete = async () => {
+  const handleBatchDelete = () => {
     if (selectedItems.length === 0) return;
     if (!confirm(`Delete ${selectedItems.length} selected items?`)) return;
     
-    try {
-      const bookIds = selectedItems.filter(id => id.startsWith('book-')).map(id => id.replace('book-', ''));
-      const jobIds = selectedItems.filter(id => id.startsWith('job-')).map(id => id.replace('job-', ''));
-      const vocabIds = selectedItems.filter(id => id.startsWith('vocab-')).map(id => id.replace('vocab-', ''));
-      
-      await Promise.all([
-        bookIds.length > 0 && supabase.from('books').delete().in('id', bookIds),
-        jobIds.length > 0 && supabase.from('jobs').delete().in('id', jobIds),
-        vocabIds.length > 0 && supabase.from('vocabulary').delete().in('id', vocabIds)
-      ]);
-      
-      const updatedData = {
-        books: data.books.filter(b => !bookIds.includes(b.id.toString())),
-        jobs: data.jobs.filter(j => !jobIds.includes(j.id.toString())),
-        vocab: data.vocab.filter(v => !vocabIds.includes(v.id.toString()))
-      };
-      
-      saveToHistory(updatedData);
-      setSelectedItems([]);
-      setToast({ message: `🗑️ Deleted ${selectedItems.length} items!`, type: 'success' });
-    } catch (error: any) {
-      setToast({ message: `Error: ${error.message}`, type: 'error' });
-    }
+    const bookIds = selectedItems.filter(id => id.startsWith('book-')).map(id => id.replace('book-', ''));
+    const jobIds = selectedItems.filter(id => id.startsWith('job-')).map(id => id.replace('job-', ''));
+    const vocabIds = selectedItems.filter(id => id.startsWith('vocab-')).map(id => id.replace('vocab-', ''));
+    
+    const updatedData = {
+      books: data.books.filter(b => !bookIds.includes(b.id.toString())),
+      jobs: data.jobs.filter(j => !jobIds.includes(j.id.toString())),
+      vocab: data.vocab.filter(v => !vocabIds.includes(v.id.toString()))
+    };
+    
+    saveToHistory(updatedData);
+    setSelectedItems([]);
+    setToast({ message: `🗑️ Deleted ${selectedItems.length} items!`, type: 'success' });
   };
 
   // CRUD handlers for Jobs
-  const handleSaveJob = async (job: Omit<JobItem, 'id'> & { id?: any }) => {
-    try {
-      if (job.id) {
-        const { error } = await supabase.from('jobs').update({
-          company: job.company,
-          position: job.position,
-          status: job.status,
-          date_applied: job.dateAdded,
-          tags: job.tags
-        }).eq('id', job.id);
-        
-        if (error) throw error;
-        
-        const updatedData = {
-          ...data,
-          jobs: data.jobs.map(j => j.id === job.id ? job as JobItem : j)
-        };
-        saveToHistory(updatedData);
-        setToast({ message: '💼 Job updated!', type: 'success' });
-      } else {
-        const { data: newJob, error } = await supabase.from('jobs').insert({
-          user_id: user?.id,
-          company: job.company,
-          position: job.position,
-          status: job.status,
-          date_applied: job.dateAdded,
-          tags: job.tags
-        }).select().single();
-        
-        if (error) throw error;
-        
-        const updatedData = { ...data, jobs: [...data.jobs, {
-          id: newJob.id,
-          company: newJob.company,
-          position: newJob.position,
-          status: newJob.status,
-          dateAdded: newJob.date_applied,
-          tags: newJob.tags || []
-        }] };
-        saveToHistory(updatedData);
-        setToast({ message: '💼 Job added!', type: 'success' });
-      }
-      setShowJobForm(false);
-      setEditingJob(undefined);
-    } catch (error: any) {
-      setToast({ message: `Error: ${error.message}`, type: 'error' });
+  const handleSaveJob = (job: Omit<JobItem, 'id'> & { id?: any }) => {
+    if (job.id) {
+      const updatedData = {
+        ...data,
+        jobs: data.jobs.map(j => j.id === job.id ? job as JobItem : j)
+      };
+      saveToHistory(updatedData);
+      setToast({ message: '💼 Job updated!', type: 'success' });
+    } else {
+      const newJob: JobItem = { ...job, id: Date.now(), dateAdded: new Date().toISOString().split('T')[0] };
+      const updatedData = { ...data, jobs: [...data.jobs, newJob] };
+      saveToHistory(updatedData);
+      setToast({ message: '💼 Job added!', type: 'success' });
     }
+    setShowJobForm(false);
+    setEditingJob(undefined);
   };
 
   const handleEditJob = (job: JobItem) => {
@@ -645,57 +489,23 @@ const Index = () => {
   };
 
   // CRUD handlers for Vocabulary
-  const handleSaveVocab = async (vocab: Omit<VocabItem, 'id'> & { id?: any }) => {
-    try {
-      if (vocab.id) {
-        const { error } = await supabase.from('vocabulary').update({
-          word: vocab.word,
-          translation: vocab.trans,
-          language: vocab.lang,
-          mastery: vocab.mastery,
-          date_added: vocab.dateAdded,
-          tags: vocab.tags
-        }).eq('id', vocab.id);
-        
-        if (error) throw error;
-        
-        const updatedData = {
-          ...data,
-          vocab: data.vocab.map(v => v.id === vocab.id ? vocab as VocabItem : v)
-        };
-        saveToHistory(updatedData);
-        setToast({ message: '📖 Vocabulary updated!', type: 'success' });
-      } else {
-        const { data: newVocab, error } = await supabase.from('vocabulary').insert({
-          user_id: user?.id,
-          word: vocab.word,
-          translation: vocab.trans,
-          language: vocab.lang,
-          mastery: vocab.mastery,
-          date_added: vocab.dateAdded,
-          tags: vocab.tags
-        }).select().single();
-        
-        if (error) throw error;
-        
-        const updatedData = { ...data, vocab: [...data.vocab, {
-          id: newVocab.id,
-          word: newVocab.word,
-          trans: newVocab.translation,
-          lang: newVocab.language,
-          mastery: newVocab.mastery,
-          dateAdded: newVocab.date_added,
-          tags: newVocab.tags || []
-        }] };
-        saveToHistory(updatedData);
-        setToast({ message: '📖 Vocabulary added!', type: 'success' });
-        if (vocab.mastery >= 90) triggerConfetti();
-      }
-      setShowVocabForm(false);
-      setEditingVocab(undefined);
-    } catch (error: any) {
-      setToast({ message: `Error: ${error.message}`, type: 'error' });
+  const handleSaveVocab = (vocab: Omit<VocabItem, 'id'> & { id?: any }) => {
+    if (vocab.id) {
+      const updatedData = {
+        ...data,
+        vocab: data.vocab.map(v => v.id === vocab.id ? vocab as VocabItem : v)
+      };
+      saveToHistory(updatedData);
+      setToast({ message: '📖 Vocabulary updated!', type: 'success' });
+    } else {
+      const newVocab: VocabItem = { ...vocab, id: Date.now(), dateAdded: new Date().toISOString().split('T')[0] };
+      const updatedData = { ...data, vocab: [...data.vocab, newVocab] };
+      saveToHistory(updatedData);
+      setToast({ message: '📖 Vocabulary added!', type: 'success' });
+      if (vocab.mastery >= 90) triggerConfetti();
     }
+    setShowVocabForm(false);
+    setEditingVocab(undefined);
   };
 
   const handleEditVocab = (vocab: VocabItem) => {
@@ -713,10 +523,6 @@ const Index = () => {
     });
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/auth');
-  };
 
   const stats = {
     books: data.books.filter(b => b.status === 'completed').length,
@@ -890,15 +696,6 @@ const Index = () => {
                 <Keyboard className="h-5 w-5" />
               </Button>
               
-              <Button
-                onClick={handleLogout}
-                variant="outline"
-                size="icon"
-                className="rounded-xl hover:scale-105 transition-transform"
-                title="Logout"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
             </div>
           </div>
           
